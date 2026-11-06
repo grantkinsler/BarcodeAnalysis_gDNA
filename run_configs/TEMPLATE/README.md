@@ -12,9 +12,8 @@ python run_barcode_pipeline.py run_configs/<your_run_name>/config.json
 
 - `fastq_dir`: where per-sample, decompressed barcode-read fastq files live (or
   will be staged to). Layout the pipeline expects:
-  `<fastq_dir>/<sample>/<sample>_L001_R<N>_001.fastq`, `<N>` being 1 or 2
-  depending on which read carries the barcode for that sample (see
-  `reverse_complement` below) -- the `_L001_R<N>_001` Illumina-style suffix
+  `<fastq_dir>/<sample>/<sample>_L001_R<N>_001.fastq`, `<N>` set for the whole
+  run by `barcode_read` below -- the `_L001_R<N>_001` Illumina-style suffix
   matters, the extraction code parses the sample name by splitting on `_L0`.
   Each sample folder should contain exactly one such file.
 - `sc_in_dir`, `filt_dir`: scratch directories for intermediate per-read files.
@@ -23,18 +22,36 @@ python run_barcode_pipeline.py run_configs/<your_run_name>/config.json
 - `out_dir`: final output location. Per-sample count tables land in
   `<out_dir>/starcode_outputs/sc_output_counts_<sample>.txt`.
 
+## `barcode_read` (optional, omit for the default)
+
+`"R1"` (default) or `"R2"`: which physical read carries the barcode, for
+**every sample in this run** -- a run is always uniformly R1 or R2, never
+mixed within one config. Set this to `"R2"` for a run where read orientation
+was deliberately swapped in library prep. It drives two things:
+
+- the `_R1_`/`_R2_` tag in the filenames `stage_fastqs` writes (see below);
+- the default for `reverse_complement` (see Extraction parameters) -- `"R1"`
+  reverse-complements reads before the `strtseq` search, `"R2"` doesn't.
+
+If you've already staged fastqs yourself (skipping `stage_fastqs`), just name
+your files with the matching `_R1_`/`_R2_` tag and set `barcode_read` to match.
+
 ## `stage_fastqs` (optional)
 
 If present, the pipeline copies (decompressing if `.gz`) each entry into the
-`fastq_dir` layout above before extraction. Two forms per sample -- a whole
-run is either all-R1 or all-R2 (never mixed), so you'll use one form for
-every sample in a given config:
+`fastq_dir` layout above before extraction, using the read set by
+`barcode_read`:
 
-- `"sample_name": "/path/to/raw_R1.fastq.gz"` -- the common case (barcode
-  read is R1).
-- `"sample_name": {"src": "/path/to/raw_R2.fastq.gz", "read": "R2"}` -- for a
-  run where read orientation was swapped, so the barcode-bearing read is R2
-  instead (see `reverse_complement` below). `"read"` must be `"R1"` or `"R2"`.
+```json
+"stage_fastqs": {
+  "sample1": "/path/to/raw_data/sample1_R1.fastq.gz",
+  "sample2": "/path/to/raw_data/sample2_R1.fastq.gz"
+}
+```
+
+(An entry can instead be `{"src": "...", "read": "R2"}` to override
+`barcode_read` for one sample specifically, if that's ever genuinely needed --
+not the normal case, since a run's samples are never mixed.)
 
 **Omit this key entirely** if you've already staged fastqs yourself -- useful
 when your sequencer's demux output needs its own lane/index-picking logic
@@ -56,11 +73,11 @@ These are per-read settings, applied before any clustering:
 - `bclen`: barcode length in nt to slice out after the anchor (+ tag window, if
   present).
 - `reverse_complement` (optional, omit for the default): controls whether the
-  raw read is reverse-complemented before searching for `strtseq`. Default
-  (key omitted, or `null` for a given sample) **auto-detects per sample from
-  its fastq filename**: an R1 file gets reverse-complemented, an R2 file
-  doesn't -- this matches both the normal R1 setup for this construct and the
-  confirmed behavior for a read-orientation-swapped R2 sample.
+  raw read is reverse-complemented before searching for `strtseq`. **Normally
+  you don't set this** -- it defaults from `barcode_read` (`"R1"` ->
+  reverse-complement; `"R2"` -> don't), which is the one knob you actually
+  need to touch. Set `reverse_complement` explicitly only if a specific
+  construct/swap needs something other than that default.
 
   `strtseq` and `tag_seqs` describe one fixed "canonical" orientation --
   the one you get *after* this reverse-complement step (if any) is applied --
@@ -68,21 +85,15 @@ These are per-read settings, applied before any clustering:
   from or whether getting there needed a flip. Concretely: `strtseq` is
   matched directly against the (possibly reverse-complemented) read, and a
   tag is matched against the reverse complement of its `tag_seqs` value,
-  regardless of `reverse_complement`'s value for that sample. So for a
-  swapped R2 sample needing no flip, its raw read should already read
-  directly as `strtseq + revcomp(tag) + barcode` -- the exact same string an
-  R1 read produces only after being reverse-complemented. This has been
-  verified against synthetic reads built that way; **spot-check your first
-  real swapped-orientation run** (a suspiciously low read-pass rate, or tag
-  calls coming back mostly `"None"`, both mean this assumption doesn't hold
-  for your construct -- come back and we'll adjust the tag-matching logic to
+  regardless of `reverse_complement`'s value. So for an R2 run needing no
+  flip, its raw reads should already read directly as
+  `strtseq + revcomp(tag) + barcode` -- the exact same string an R1 read
+  produces only after being reverse-complemented. This has been verified
+  against synthetic reads built that way; **spot-check your first real
+  swapped-orientation run** (a suspiciously low read-pass rate, or tag calls
+  coming back mostly `"None"`, both mean this assumption doesn't hold for
+  your construct -- come back and we'll adjust the tag-matching logic to
   match what your real reads actually look like).
-
-  Leave `reverse_complement` out entirely for the normal case -- the
-  filename-based default already does the right thing uniformly across a
-  whole run (all-R1 or all-R2; samples are never mixed within one run). Only
-  set it explicitly (a single bool, applied to every sample) if a specific
-  construct/swap needs something other than that default.
 - `startseq_match`: % match required to call the anchor present; reads failing
   this are dropped.
 - `tag_seqs`: `{tag_name: forward-orientation sequence immediately after the

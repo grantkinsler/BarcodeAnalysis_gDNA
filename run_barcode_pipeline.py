@@ -12,13 +12,17 @@ load_corrected_clustering.py and the eGRK1059_lod_and_hamming_clustering memory)
   1. (optional) stage raw per-sample fastq.gz files into the uniform layout
      gDNA_starcode_prep expects: <fastq_dir>/<sample>/<sample>_L001_R<N>_001.fastq
      (decompressed -- gDNA_starcode_prep globs for *_R1*.fastq / *_R2*.fastq, not
-     .fastq.gz). Skip this (omit "stage_fastqs" from the config) if you've already
-     staged fastqs yourself, e.g. because your sequencer's demux layout needs
-     run-specific lane/index logic beyond a flat sample->file mapping.
+     .fastq.gz). <N> is set for the whole run by the config's "barcode_read"
+     ("R1" by default, or "R2" for a run where read orientation was swapped --
+     a run is always uniformly one or the other, never mixed). Skip staging
+     (omit "stage_fastqs" from the config) if you've already staged fastqs
+     yourself, e.g. because your sequencer's demux layout needs run-specific
+     lane/index logic beyond a flat sample->file mapping -- just name the files
+     you stage with the matching _R1_/_R2_ tag.
 
   2. per-read extraction (gDNA_starcode_prep): reverse-complement the barcode-bearing
-     read -- by default an R1 file gets reverse-complemented and an R2 file doesn't
-     (confirmed correct for a read-orientation-swapped library; override via
+     read -- by default R1 gets reverse-complemented and R2 doesn't (confirmed
+     correct for a read-orientation-swapped library; override via
      "reverse_complement" if your swap needs something else -- see
      run_configs/TEMPLATE/README.md), anchor on strtseq, call an optional tag window
      immediately after the anchor (conditional offset -- only skipped when a tag
@@ -55,20 +59,22 @@ sys.path.insert(0, os.path.join(SCRIPT_DIR, "BarcodeAnalysis_v2_gDNA", "ExtractB
 from gDNA_starcode_prep import gDNA_starcode_prep  # noqa: E402
 
 
-def stage_fastqs(stage_map, fastq_dir):
+def stage_fastqs(stage_map, fastq_dir, default_read="R1"):
     """Copy/decompress each sample's raw barcode-read fastq(.gz) into the uniform
     per-sample layout gDNA_starcode_prep expects.
 
-    stage_map: {sample_name: path_to_source_fastq} for the common case (barcode
-    read is R1), or {sample_name: {"src": path_to_source_fastq, "read": "R2"}}
-    for a sample whose barcode-bearing read is R2 instead -- e.g. a read-orientation-
-    swapped library. "read" defaults to "R1" when omitted."""
+    stage_map: {sample_name: path_to_source_fastq} for the common case, where
+    every sample in this run uses the same read (set via default_read, itself
+    driven by the config's top-level "barcode_read" -- a whole run is always
+    uniformly R1 or R2, never mixed). A sample entry can instead be
+    {"src": path_to_source_fastq, "read": "R2"} to override default_read for
+    that one sample, if ever needed."""
     print("=== staging fastqs ===")
     for sample, entry in stage_map.items():
         if isinstance(entry, dict):
-            src, read = entry["src"], entry.get("read", "R1")
+            src, read = entry["src"], entry.get("read", default_read)
         else:
-            src, read = entry, "R1"
+            src, read = entry, default_read
         assert read in ("R1", "R2"), f"{sample}: read must be 'R1' or 'R2', got {read!r}"
         dest_dir = os.path.join(fastq_dir, sample)
         os.makedirs(dest_dir, exist_ok=True)
@@ -153,8 +159,16 @@ def main(config_path):
     for d in (fastq_dir, sc_in_stage, filt_dir, sc_out):
         os.makedirs(d, exist_ok=True)
 
+    # barcode_read: which physical read carries the barcode for every sample in this
+    # run (a run is always uniformly R1 or R2, never mixed -- see
+    # run_configs/TEMPLATE/README.md). Drives both the destination filename used when
+    # staging fastqs, and (unless reverse_complement is set explicitly) whether reads
+    # get reverse-complemented before the strtseq search.
+    barcode_read = cfg.get("barcode_read", "R1")
+    assert barcode_read in ("R1", "R2"), f"barcode_read must be 'R1' or 'R2', got {barcode_read!r}"
+
     if cfg.get("stage_fastqs"):
-        stage_fastqs(cfg["stage_fastqs"], fastq_dir)
+        stage_fastqs(cfg["stage_fastqs"], fastq_dir, default_read=barcode_read)
 
     groups = cfg["groups"]
     samples = [s for group in groups for s in group]
@@ -167,7 +181,7 @@ def main(config_path):
         cfg.get("tag_seqs", {}), cfg.get("tag_match", 75),
         cfg.get("include_tag_in_clustering", False),
         cfg.get("min_qual"), cfg.get("exclude_tag_seqs", {}),
-        cfg.get("reverse_complement"),
+        cfg.get("reverse_complement", barcode_read == "R1"),
     )
     print("Done extracting.\n")
 

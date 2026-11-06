@@ -68,20 +68,24 @@ immediately after the barcode (in construct orientation), so
   though the tag is still called and reported separately). Setting this to
   `True` instead carries the tag window through as part of what gets
   clustered, for cases where you want tag+barcode treated as one unit.
-- **R2 / read-orientation-swap support** (`reverse_complement`) — upstream
-  only ever reads `*_R1*.fastq` and always reverse-complements it. This fork
-  also globs `*_R2*.fastq`, and whether a sample's read gets
+- **R2 / read-orientation-swap support** (`barcode_read`, `reverse_complement`)
+  — upstream only ever reads `*_R1*.fastq` and always reverse-complements it.
+  This fork also globs `*_R2*.fastq`, and whether a sample's read gets
   reverse-complemented before the `strtseq` search is controlled by
   `reverse_complement` (bool, or `{sample: bool}`; `None`/omitted
-  auto-detects from the filename: R1 → reverse-complement, R2 → don't). A
-  whole run is expected to be uniformly R1 or R2, never mixed within one run.
-  `strtseq`/`tag_seqs` describe one fixed canonical orientation reached after
-  that optional flip, so tag matching (always against the reverse complement
-  of a `tag_seqs` value) doesn't itself change with `reverse_complement` —
-  confirmed against synthetic R1 and R2 reads built that way (see git history
-  for the test). First real swapped-orientation run should be spot-checked
-  (read-pass rate / tag-call rate) in case the real construct doesn't follow
-  that same canonical-orientation convention.
+  auto-detects from the filename: R1 → reverse-complement, R2 → don't).
+  `run_barcode_pipeline.py`'s top-level `barcode_read` config field
+  (`"R1"`/`"R2"`) is the knob you actually set day-to-day — it drives both
+  the `stage_fastqs` destination filename and the `reverse_complement`
+  default for the whole run (a run is always uniformly R1 or R2, never mixed
+  within one config). `strtseq`/`tag_seqs` describe one fixed canonical
+  orientation reached after that optional flip, so tag matching (always
+  against the reverse complement of a `tag_seqs` value) doesn't itself
+  change with `reverse_complement` — confirmed against synthetic R1 and R2
+  reads built that way (see git history for the test). First real
+  swapped-orientation run should be spot-checked (read-pass rate / tag-call
+  rate) in case the real construct doesn't follow that same
+  canonical-orientation convention.
 
 ## New on top of both
 
