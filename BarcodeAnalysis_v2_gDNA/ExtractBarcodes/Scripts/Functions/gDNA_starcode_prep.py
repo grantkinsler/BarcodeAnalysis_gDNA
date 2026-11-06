@@ -1,7 +1,6 @@
 # This function takes in Fastq files taken from gDNA barcodes and reverse complements the sequences + trims them
 # so that starcode can run properly
 
-import os
 from glob import glob
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -9,7 +8,7 @@ import statistics
 from rapidfuzz import fuzz
 from time import sleep
 
-def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,strtseq,startseqMatch,sc_mm,tag_seqs=None,tagMatch=75,include_tag_in_clustering=False,minQual=None,exclude_tag_seqs=None,reverse_complement=None):
+def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,strtseq,startseqMatch,sc_mm,tag_seqs=None,tagMatch=75,include_tag_in_clustering=False,minQual=None,exclude_tag_seqs=None,reverse_complement=True):
     # tag_seqs: dict of {tag_name: forward-orientation tag sequence immediately
     # following the barcode in the construct}. Reads are reverse-complemented
     # before strtseq is located, so in that search orientation the tag actually
@@ -44,21 +43,17 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
     # anchor match -- not merely relabeled "None" the way a genuinely tag-less
     # (e.g. ladder) read would be.
     #
-    # reverse_complement: None (default), bool, or {sample_name: bool-or-None} for a
-    # per-sample override.
-    #   - None for a given sample (the default): auto-detect from that sample's fastq
-    #     filename -- True (reverse-complement, the historical/only behavior before
-    #     this parameter existed) for an R1 file, False for an R2 file. This matches
-    #     the normal R1 setup for this construct (raw read sequences into the
-    #     construct from the far end, so has to be flipped before strtseq -> tag ->
-    #     barcode appears in that order) and the confirmed behavior for an R2 read
-    #     from a library with read orientation deliberately swapped relative to that
-    #     normal R1 setup (no reverse-complement needed -- R2 already reads directly
-    #     into strtseq -> tag -> barcode).
-    #   - explicit True/False (globally, or per sample via the dict) overrides the
-    #     auto-detect above, for a construct/swap where that assumption doesn't hold.
-    # The fastq file searched for a sample is whichever of *_R1*.fastq / *_R2*.fastq
-    # exists in that sample's folder -- auto-detect keys off of that filename.
+    # reverse_complement: bool (default True), or {sample_name: bool} for a per-sample
+    # override, with True as the default for any sample not listed. True -- the
+    # historical/only behavior before this parameter existed, and confirmed to also
+    # be correct for an R2 read from a library with read orientation deliberately
+    # swapped relative to the normal R1 setup -- reverse-complements the raw read
+    # before searching for strtseq. Both R1 and R2 reads get the same treatment here;
+    # the fastq file searched for a sample is whichever of *_R1*.fastq / *_R2*.fastq
+    # exists in that sample's folder (see barcode_read in run_barcode_pipeline.py),
+    # but which one it physically is doesn't change this default. Set False only if a
+    # specific construct/read genuinely reads directly into strtseq -> tag -> barcode
+    # without needing a flip.
     if tag_seqs is None:
         tag_seqs = {}
     if exclude_tag_seqs is None:
@@ -109,15 +104,12 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
             if "/"+ sample in path:
                 s_fastq.append(path)
 
-        # resolve this sample's reverse_complement setting: an explicit bool (globally,
-        # or per-sample via the dict) wins; otherwise auto-detect from the filename
-        # (True/reverse-complement for an R1 file, False for an R2 file).
+        # resolve this sample's reverse_complement setting (bool, or {sample: bool}
+        # with True as the default for any sample not listed)
         if isinstance(reverse_complement, dict):
-            sample_rc = reverse_complement.get(sample, None)
+            sample_rc = reverse_complement.get(sample, True)
         else:
             sample_rc = reverse_complement
-        if sample_rc is None:
-            sample_rc = not any("_R2" in os.path.basename(p) for p in s_fastq)
 
         # get JUST the sequences in all the fastqs contains all sequences for a sample
         seqs = []

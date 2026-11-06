@@ -21,9 +21,9 @@ load_corrected_clustering.py and the eGRK1059_lod_and_hamming_clustering memory)
      you stage with the matching _R1_/_R2_ tag.
 
   2. per-read extraction (gDNA_starcode_prep): reverse-complement the barcode-bearing
-     read -- by default R1 gets reverse-complemented and R2 doesn't (confirmed
-     correct for a read-orientation-swapped library; override via
-     "reverse_complement" if your swap needs something else -- see
+     read -- True by default for every sample, R1 or R2 alike (confirmed correct for
+     a read-orientation-swapped library too; override via "reverse_complement" if a
+     specific construct/read genuinely doesn't need it -- see
      run_configs/TEMPLATE/README.md), anchor on strtseq, call an optional tag window
      immediately after the anchor (conditional offset -- only skipped when a tag
      confidently matches, so tag-less reads like ladder/spike-ins stay in register),
@@ -161,9 +161,10 @@ def main(config_path):
 
     # barcode_read: which physical read carries the barcode for every sample in this
     # run (a run is always uniformly R1 or R2, never mixed -- see
-    # run_configs/TEMPLATE/README.md). Drives both the destination filename used when
-    # staging fastqs, and (unless reverse_complement is set explicitly) whether reads
-    # get reverse-complemented before the strtseq search.
+    # run_configs/TEMPLATE/README.md). Only controls the destination filename used
+    # when staging fastqs and which *_R1*/*_R2* file gets globbed -- both R1 and R2
+    # reads get reverse-complemented before the strtseq search by default (see
+    # "reverse_complement" below), so this has no effect on that transform.
     barcode_read = cfg.get("barcode_read", "R1")
     assert barcode_read in ("R1", "R2"), f"barcode_read must be 'R1' or 'R2', got {barcode_read!r}"
 
@@ -181,7 +182,7 @@ def main(config_path):
         cfg.get("tag_seqs", {}), cfg.get("tag_match", 75),
         cfg.get("include_tag_in_clustering", False),
         cfg.get("min_qual"), cfg.get("exclude_tag_seqs", {}),
-        cfg.get("reverse_complement", barcode_read == "R1"),
+        cfg.get("reverse_complement", True),
     )
     print("Done extracting.\n")
 

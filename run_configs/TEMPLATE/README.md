@@ -27,11 +27,11 @@ python run_barcode_pipeline.py run_configs/<your_run_name>/config.json
 `"R1"` (default) or `"R2"`: which physical read carries the barcode, for
 **every sample in this run** -- a run is always uniformly R1 or R2, never
 mixed within one config. Set this to `"R2"` for a run where read orientation
-was deliberately swapped in library prep. It drives two things:
-
-- the `_R1_`/`_R2_` tag in the filenames `stage_fastqs` writes (see below);
-- the default for `reverse_complement` (see Extraction parameters) -- `"R1"`
-  reverse-complements reads before the `strtseq` search, `"R2"` doesn't.
+was deliberately swapped in library prep. It only controls the `_R1_`/`_R2_`
+tag in the filenames `stage_fastqs` writes (see below) and which file gets
+read -- **it does not change the reverse-complement step**: both R1 and R2
+reads get reverse-complemented before the `strtseq` search by default (see
+`reverse_complement` under Extraction parameters).
 
 If you've already staged fastqs yourself (skipping `stage_fastqs`), just name
 your files with the matching `_R1_`/`_R2_` tag and set `barcode_read` to match.
@@ -67,33 +67,26 @@ These are per-read settings, applied before any clustering:
 
 - `strtseq`: the constant anchor sequence immediately before the barcode, in
   the read's orientation *after* the `reverse_complement` transform below is
-  applied (so in the normal R1/reverse-complement=true case, the tag sits
-  between the anchor and the barcode in that post-transform orientation).
-  Must match your construct's backbone sequence.
+  applied (so the tag sits between the anchor and the barcode in that
+  post-transform orientation). Must match your construct's backbone sequence.
 - `bclen`: barcode length in nt to slice out after the anchor (+ tag window, if
   present).
 - `reverse_complement` (optional, omit for the default): controls whether the
-  raw read is reverse-complemented before searching for `strtseq`. **Normally
-  you don't set this** -- it defaults from `barcode_read` (`"R1"` ->
-  reverse-complement; `"R2"` -> don't), which is the one knob you actually
-  need to touch. Set `reverse_complement` explicitly only if a specific
-  construct/swap needs something other than that default.
+  raw read is reverse-complemented before searching for `strtseq`. **Defaults
+  to `true` for every sample, R1 or R2 alike** -- the raw read, whichever
+  physical read it is, needs flipping before `strtseq -> tag -> barcode`
+  appears in that order. `barcode_read` does *not* change this default (it
+  only picks which file gets read); only set `reverse_complement` to `false`
+  if a specific construct/read genuinely reads directly into
+  `strtseq -> tag -> barcode` without needing a flip -- either a single bool
+  applied to every sample, or a per-sample object, e.g.
+  `{"some_sample": false}`, with `true` as the default for any sample not
+  listed.
 
-  `strtseq` and `tag_seqs` describe one fixed "canonical" orientation --
-  the one you get *after* this reverse-complement step (if any) is applied --
-  and that canonical form doesn't change based on which physical read it came
-  from or whether getting there needed a flip. Concretely: `strtseq` is
-  matched directly against the (possibly reverse-complemented) read, and a
-  tag is matched against the reverse complement of its `tag_seqs` value,
-  regardless of `reverse_complement`'s value. So for an R2 run needing no
-  flip, its raw reads should already read directly as
-  `strtseq + revcomp(tag) + barcode` -- the exact same string an R1 read
-  produces only after being reverse-complemented. This has been verified
-  against synthetic reads built that way; **spot-check your first real
-  swapped-orientation run** (a suspiciously low read-pass rate, or tag calls
-  coming back mostly `"None"`, both mean this assumption doesn't hold for
-  your construct -- come back and we'll adjust the tag-matching logic to
-  match what your real reads actually look like).
+  `strtseq` and `tag_seqs` describe one fixed "canonical" orientation -- the
+  one you get *after* this reverse-complement step is applied -- so `strtseq`
+  is matched directly against the (reverse-complemented) read, and a tag is
+  matched against the reverse complement of its `tag_seqs` value.
 - `startseq_match`: % match required to call the anchor present; reads failing
   this are dropped.
 - `tag_seqs`: `{tag_name: forward-orientation sequence immediately after the
