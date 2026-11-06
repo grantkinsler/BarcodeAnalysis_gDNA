@@ -1,0 +1,34 @@
+{
+  "_comment": "Template config for run_barcode_pipeline.py. Copy this folder to run_configs/<your_run_name>/, edit config.json, then run: python run_barcode_pipeline.py run_configs/<your_run_name>/config.json. This is plain JSON (no comments allowed in the real file) -- see README.md in this folder for what each field means.",
+
+  "fastq_dir": "/absolute/path/to/pipeline_work/fastq_gDNA_<run_name>",
+  "sc_in_dir": "/absolute/path/to/pipeline_work/sc_in_<run_name>",
+  "filt_dir": "/absolute/path/to/pipeline_work/filt_<run_name>",
+  "out_dir": "/absolute/path/to/pipeline_output/<run_name>",
+
+  "stage_fastqs": {
+    "sample1": "/absolute/path/to/raw_data/sample1_R1.fastq.gz",
+    "sample2": "/absolute/path/to/raw_data/sample2_R1.fastq.gz"
+  },
+
+  "strtseq": "TTTCTAGCTCTAAAAC",
+  "bclen": 20,
+  "startseq_match": 70,
+  "sc_mm": 4,
+
+  "tag_seqs": {
+    "Tag1": "GCCGAATC",
+    "Tag2": "GATAAGCC"
+  },
+  "tag_match": 75,
+  "include_tag_in_clustering": false,
+
+  "min_qual": 35,
+
+  "exclude_tag_seqs": {},
+
+  "groups": [
+    ["sample1"],
+    ["sample2"]
+  ]
+}

@@ -1,0 +1,77 @@
+{
+	//This .json file will contain all the paths and variables to run the functions in this pipeline
+
+    //              Paths
+
+	//Path to BarcodeAnalysis folder
+    "scripts": "/Users/grantkinsler/RajLab Dropbox/Grant Kinsler/Shared_Grant/OncogenicPriming/eGRK1059/barcode_analysis/code/BarcodeAnalysis_v2_gDNA",
+
+		//Folder that contains all folders containing FASTQ files generated from sequencing the 10x barcodes
+		//If you do not have corresponding 10x sample, leave empty ("").
+    "Fastqfolder10x": "",
+
+    //Folder that contains all folders containing gDNA FASTQ files generated from sequencing the barcodes.
+    //If you do not have corresponding gDNA sample, leave empty ("").
+    //NB: points at a symlinked working copy (pipeline_work/fastq_gDNA), NOT raw_data directly,
+    //because Step3.py runs `gunzip -r` in place on this folder. raw_data/eGRK1059 stays untouched.
+    "FastqfoldergDNA": "/Users/grantkinsler/RajLab Dropbox/Grant Kinsler/Shared_Grant/OncogenicPriming/eGRK1059/barcode_analysis/pipeline_work/fastq_gDNA",
+
+    //Folder you want outputs go go into (dont make this folder, this scipt will make it)
+    "Outfolder": "/Users/grantkinsler/RajLab Dropbox/Grant Kinsler/Shared_Grant/OncogenicPriming/eGRK1059/barcode_analysis/pipeline_output/eGRK1059",
+
+    //            Variables
+    //Determine whether the data has barcodes from 10x ("10x"), gDNA ("gDNA"), or both "both"
+    "barcodeSource" : "gDNA",
+
+    //common sequence right before starcode starts
+    "strtseq": "TTTCTAGCTCTAAAAC",
+    "strtseq_revcomp": "GTTTTAGAGCTAGAAA",
+
+
+    //length to keep from sequenced barcode (this is actual bacode, does not include strt seq above)
+    "bclen": 20,
+
+    //allowed number of mismatches between barcodes to be called the same (max value is 8)(starcode input)
+    "sc_mm": 4,
+
+    //The percentage match you for startseq to be called as correct in a barcode
+    "startseqMatch": 70,
+
+    //Tag sequences (forward orientation, as they sit immediately after the barcode in the
+    //construct) and the fuzzy-match threshold (same style as startseqMatch) used to call a tag.
+    //Some reads have neither tag; those are called "None". Never fed into starcode.
+    "tag_seqs": {
+        "Tag1": "GCCGAATC",
+        "Tag2": "GATAAGCC"
+    },
+    "tagMatch": 75,
+
+    //Minimum mean Phred quality required over the tag window (else the tag call falls back
+    //to "None") and separately over the true bclen-nt barcode window (else the whole read is
+    //dropped, same as failing startseqMatch). Set to null/omit to disable.
+    "minQual": 35,
+
+    //Number of barcodes to use to calculate Levenshtein Distance (2 random samplings are taken)
+    "num_of_barcodes_to_use": 500,
+
+    //		     Sample names
+    //Define which samples should be run together in starcode (any samples that could contain cells from the same lineage should be grouped together in a list within the GSAMP list)
+	//EXAMPLE: if you have samples : s1,s2,s3, and s4  and they all share lineage barcode enter [["s1","s2","s3","s4"]] if none should share lineages enter [["s1"],["s2"],["s3"],["s4"]]
+	//if s1 and s2 share lineage barcodes but none of the others do enter [["s1","s2"],["s3"],["s4"]]
+	//NOTE: names used here should match the names that will be assinged to samples in line 229 and 250 in the step3.py script (should be everything before lane (_L0))
+
+    //Two giant per-experiment groups: every Tag1-family sample (Tag1 T0 + all "1"/"14" root
+    //samples, all timepoints/replicates) pooled into one master consensus barcode list, and
+    //every Tag2-family sample (Tag2 T0 + all "A"/"B" root samples) pooled into the other.
+	"GSAMP": [
+        ["1_2_S2", "3_6_S18", "1_4_S4", "5_4_S28", "2_1_S7", "2_3_S9", "5_2_S26", "6_3_S33",
+         "2_5_S11", "6_5_S35", "3_2_S14", "4_5_S23", "3_4_S16", "4_1_S19", "4_3_S21", "5_6_S30"],
+        ["1_3_S3", "6_1_S31", "1_5_S5", "4_2_S20", "1_6_S6", "5_1_S25", "2_4_S10", "2_6_S12",
+         "5_3_S27", "3_1_S13", "4_6_S24", "3_5_S17", "6_2_S32", "6_4_S34"]
+    ],
+
+    //              Spike-in
+    // Does you sample contain Spike-ins?
+    // "yes" = Spike-ins added "no" = Spike-ins not added
+    "spike_in_added": "no"
+}

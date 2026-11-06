@@ -1,0 +1,9 @@
+library_id,molecule_h5,batch
+R1Enriched1,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R1Enriched1_count/outs/molecule_info.h5,r1
+R1Enriched2,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R1Enriched2_count/outs/molecule_info.h5,r1
+R1Mix1,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R1Mix1_count/outs/molecule_info.h5,r1
+R1Mix2,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R1Mix2_count/outs/molecule_info.h5,r1
+R2Enriched1,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R2Enriched1_count/outs/molecule_info.h5,r2
+R2Enriched2,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R2Enriched2_count/outs/molecule_info.h5,r2
+R2Mix1,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R2Mix1_count/outs/molecule_info.h5,r2
+R2Mix2,/project/shafferslab/Guillaume/10X_exp1_reanalysis/R2Mix2_count/outs/molecule_info.h5,r2

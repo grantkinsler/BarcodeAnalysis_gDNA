@@ -1,0 +1,5 @@
+fastqs,sample,library_type
+/project/shafferslab/Guillaume/10X_exp1_reanalysis/20190611_10X1_r1_seq1_fastq/outs/fastq_path/HHFWNBGXB,R1Enriched1,Gene Expression
+/project/shafferslab/Guillaume/10X_exp1_reanalysis/20190619_10X1_r1_r2_seq1_fastq/outs/fastq_path/HJCWYBGXB,R1Enriched1,Gene Expression
+/project/shafferslab/Guillaume/10X_exp1_reanalysis/20190726_10X1_r1_seq2_fastq/outs/fastq_path/HV7MTBGXB,R1Enriched1,Gene Expression
+/project/shafferslab/Guillaume/10X_exp1_reanalysis/BarcodeProcessing/Barcode_output/CellRanger_inputs/FASTQ,R1Enriched1,Custom
