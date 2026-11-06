@@ -10,17 +10,21 @@ Pipeline (matches the validated/corrected eGRK1059 20260723+ approach -- see
 load_corrected_clustering.py and the eGRK1059_lod_and_hamming_clustering memory):
 
   1. (optional) stage raw per-sample fastq.gz files into the uniform layout
-     gDNA_starcode_prep expects: <fastq_dir>/<sample>/<sample>_L001_R1_001.fastq
-     (decompressed -- gDNA_starcode_prep globs for *_R1*.fastq, not .fastq.gz).
-     Skip this (omit "stage_fastqs" from the config) if you've already staged fastqs
-     yourself, e.g. because your sequencer's demux layout needs run-specific lane/index
-     logic beyond a flat sample->file mapping.
+     gDNA_starcode_prep expects: <fastq_dir>/<sample>/<sample>_L001_R<N>_001.fastq
+     (decompressed -- gDNA_starcode_prep globs for *_R1*.fastq / *_R2*.fastq, not
+     .fastq.gz). Skip this (omit "stage_fastqs" from the config) if you've already
+     staged fastqs yourself, e.g. because your sequencer's demux layout needs
+     run-specific lane/index logic beyond a flat sample->file mapping.
 
-  2. per-read extraction (gDNA_starcode_prep): reverse-complement R1, anchor on strtseq,
-     call an optional tag window immediately after the anchor (conditional offset -- only
-     skipped when a tag confidently matches, so tag-less reads like ladder/spike-ins stay
-     in register), slice the barcode, apply startseq/quality filters, and optionally drop
-     reads matching exclude_tag_seqs entirely.
+  2. per-read extraction (gDNA_starcode_prep): reverse-complement the barcode-bearing
+     read -- by default an R1 file gets reverse-complemented and an R2 file doesn't
+     (confirmed correct for a read-orientation-swapped library; override via
+     "reverse_complement" if your swap needs something else -- see
+     run_configs/TEMPLATE/README.md), anchor on strtseq, call an optional tag window
+     immediately after the anchor (conditional offset -- only skipped when a tag
+     confidently matches, so tag-less reads like ladder/spike-ins stay in register),
+     slice the barcode, apply startseq/quality filters, and optionally drop reads
+     matching exclude_tag_seqs entirely.
 
   3. starcode clustering, run once per group in "groups" (pool samples that should share
      barcode-consensus calling -- e.g. same physical lineage pool / same tag family; a
@@ -52,20 +56,30 @@ from gDNA_starcode_prep import gDNA_starcode_prep  # noqa: E402
 
 
 def stage_fastqs(stage_map, fastq_dir):
-    """Copy/decompress each sample's raw R1 fastq(.gz) into the uniform per-sample
-    layout gDNA_starcode_prep expects. stage_map: {sample_name: path_to_source_fastq}."""
+    """Copy/decompress each sample's raw barcode-read fastq(.gz) into the uniform
+    per-sample layout gDNA_starcode_prep expects.
+
+    stage_map: {sample_name: path_to_source_fastq} for the common case (barcode
+    read is R1), or {sample_name: {"src": path_to_source_fastq, "read": "R2"}}
+    for a sample whose barcode-bearing read is R2 instead -- e.g. a read-orientation-
+    swapped library. "read" defaults to "R1" when omitted."""
     print("=== staging fastqs ===")
-    for sample, src in stage_map.items():
+    for sample, entry in stage_map.items():
+        if isinstance(entry, dict):
+            src, read = entry["src"], entry.get("read", "R1")
+        else:
+            src, read = entry, "R1"
+        assert read in ("R1", "R2"), f"{sample}: read must be 'R1' or 'R2', got {read!r}"
         dest_dir = os.path.join(fastq_dir, sample)
         os.makedirs(dest_dir, exist_ok=True)
-        dest = os.path.join(dest_dir, f"{sample}_L001_R1_001.fastq")
+        dest = os.path.join(dest_dir, f"{sample}_L001_{read}_001.fastq")
         if src.endswith(".gz"):
             with gzip.open(src, "rb") as f_in, open(dest, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
         else:
             shutil.copyfile(src, dest)
         size_mb = os.path.getsize(dest) / 1e6
-        print(f"  {sample:<30} <- {src}  ({size_mb:,.1f} MB)")
+        print(f"  {sample:<30} <- {src}  ({read}, {size_mb:,.1f} MB)")
     print("Done staging.\n")
 
 
@@ -153,6 +167,7 @@ def main(config_path):
         cfg.get("tag_seqs", {}), cfg.get("tag_match", 75),
         cfg.get("include_tag_in_clustering", False),
         cfg.get("min_qual"), cfg.get("exclude_tag_seqs", {}),
+        cfg.get("reverse_complement"),
     )
     print("Done extracting.\n")
 

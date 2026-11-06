@@ -6,6 +6,7 @@
   "filt_dir": "/absolute/path/to/pipeline_work/filt_<run_name>",
   "out_dir": "/absolute/path/to/pipeline_output/<run_name>",
 
+  "_stage_fastqs_comment": "Normal run (barcode read is R1, the common case): just give {sample: path_to_R1_fastq.gz}, as below. For a run where the read orientation was swapped (barcode read is R2 for every sample in the run -- this never happens as a mix within one run), instead give every sample as {sample: {\"src\": path_to_R2_fastq.gz, \"read\": \"R2\"}}. See README.md.",
   "stage_fastqs": {
     "sample1": "/absolute/path/to/raw_data/sample1_R1.fastq.gz",
     "sample2": "/absolute/path/to/raw_data/sample2_R1.fastq.gz"

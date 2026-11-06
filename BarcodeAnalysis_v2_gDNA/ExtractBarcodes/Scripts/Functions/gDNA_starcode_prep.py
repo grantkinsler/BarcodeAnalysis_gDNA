@@ -1,6 +1,7 @@
 # This function takes in Fastq files taken from gDNA barcodes and reverse complements the sequences + trims them
 # so that starcode can run properly
 
+import os
 from glob import glob
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -8,7 +9,7 @@ import statistics
 from rapidfuzz import fuzz
 from time import sleep
 
-def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,strtseq,startseqMatch,sc_mm,tag_seqs=None,tagMatch=75,include_tag_in_clustering=False,minQual=None,exclude_tag_seqs=None):
+def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,strtseq,startseqMatch,sc_mm,tag_seqs=None,tagMatch=75,include_tag_in_clustering=False,minQual=None,exclude_tag_seqs=None,reverse_complement=None):
     # tag_seqs: dict of {tag_name: forward-orientation tag sequence immediately
     # following the barcode in the construct}. Reads are reverse-complemented
     # before strtseq is located, so in that search orientation the tag actually
@@ -42,6 +43,22 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
     # tag, the read is dropped entirely (never reaches starcode), same as failing the
     # anchor match -- not merely relabeled "None" the way a genuinely tag-less
     # (e.g. ladder) read would be.
+    #
+    # reverse_complement: None (default), bool, or {sample_name: bool-or-None} for a
+    # per-sample override.
+    #   - None for a given sample (the default): auto-detect from that sample's fastq
+    #     filename -- True (reverse-complement, the historical/only behavior before
+    #     this parameter existed) for an R1 file, False for an R2 file. This matches
+    #     the normal R1 setup for this construct (raw read sequences into the
+    #     construct from the far end, so has to be flipped before strtseq -> tag ->
+    #     barcode appears in that order) and the confirmed behavior for an R2 read
+    #     from a library with read orientation deliberately swapped relative to that
+    #     normal R1 setup (no reverse-complement needed -- R2 already reads directly
+    #     into strtseq -> tag -> barcode).
+    #   - explicit True/False (globally, or per sample via the dict) overrides the
+    #     auto-detect above, for a construct/swap where that assumption doesn't hold.
+    # The fastq file searched for a sample is whichever of *_R1*.fastq / *_R2*.fastq
+    # exists in that sample's folder -- auto-detect keys off of that filename.
     if tag_seqs is None:
         tag_seqs = {}
     if exclude_tag_seqs is None:
@@ -52,8 +69,13 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
     exclude_tag_seqs_rc = {name: str(Seq(seq).reverse_complement()) for name, seq in exclude_tag_seqs.items()}
     tag_len = len(next(iter(tag_seqs.values()))) if tag_seqs else 0
     sc_bclen = bclen + tag_len if include_tag_in_clustering else bclen
-   #get all gDNA Read1 fastq file paths
+   #get all gDNA barcode-read fastq file paths. Matches *_R1* or *_R2* -- a sample's
+   #barcode-bearing read is normally R1 for this construct, but may be staged as R2
+   #for a sample whose read orientation was swapped (see reverse_complement above).
+   #Each sample is expected to have exactly one such file in its own folder; the
+   #variable names below still say "R1" for historical reasons but cover both.
     all_R1_gDNA_unfilt = glob(FastqfoldergDNA + "/**/*_R1*.fastq", recursive = True)
+    all_R1_gDNA_unfilt += glob(FastqfoldergDNA + "/**/*_R2*.fastq", recursive = True)
     all_R1_gDNA_unfilt.sort()
     
     # Remove any Read1 fastq files that you dont care about
@@ -86,13 +108,28 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         for path in all_R1_gDNA:
             if "/"+ sample in path:
                 s_fastq.append(path)
+
+        # resolve this sample's reverse_complement setting: an explicit bool (globally,
+        # or per-sample via the dict) wins; otherwise auto-detect from the filename
+        # (True/reverse-complement for an R1 file, False for an R2 file).
+        if isinstance(reverse_complement, dict):
+            sample_rc = reverse_complement.get(sample, None)
+        else:
+            sample_rc = reverse_complement
+        if sample_rc is None:
+            sample_rc = not any("_R2" in os.path.basename(p) for p in s_fastq)
+
         # get JUST the sequences in all the fastqs contains all sequences for a sample
         seqs = []
         quals = []  # per-base Phred quality, same reversal as seqs (no complementing -- quality has no complement)
         for fsmp in s_fastq:
             for record in SeqIO.parse(fsmp, "fastq"):
-                seqs.append(str(record.seq.reverse_complement()))
-                quals.append(record.letter_annotations["phred_quality"][::-1])
+                if sample_rc:
+                    seqs.append(str(record.seq.reverse_complement()))
+                    quals.append(record.letter_annotations["phred_quality"][::-1])
+                else:
+                    seqs.append(str(record.seq))
+                    quals.append(record.letter_annotations["phred_quality"])
             file_endpoints_gDNA[counter].append(len(seqs))
 
         #determine which seqeunces are actual barcodes by determining which start with the constant sequence before the barcode
@@ -242,6 +279,15 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
                         # line above (sc_bclen) or gDNA_after_starcode's fastq parser errors out on a
                         # sequence/quality length mismatch. Start is shifted past strtseq's own quality
                         # scores since the sequence line above no longer includes strtseq either.
+                        #
+                        # KNOWN GAP: this [::-1] unconditionally assumes sample_rc=True (matches the
+                        # sequence being written on the strtseq-trimmed REVERSE-COMPLEMENT, consistent
+                        # with every call site below). It is NOT fixed up for a reverse_complement=False
+                        # sample -- this CellRanger-output path (Step3.py) was not exercised for the
+                        # orientation-swap feature. run_barcode_pipeline.py never reads this output
+                        # (it only reads sc_input_<sample>.txt / tag_calls_<sample>.txt, which ARE
+                        # correct for reverse_complement=False), so this only matters if you use
+                        # Step3.py's CellRanger feature-barcoding output directly with a swapped sample.
                         f.write(lines[(4*j)+3][::-1][bc_strt+len(strtseq)+1:(sc_bclen+len(strtseq)+bc_strt)+1]+'\n') # Also reverses the phred score sequence
         
             lane_counter = lane_counter + 1
