@@ -1,0 +1,41 @@
+{
+  "_comment": "Example config for a run where every sample carries the SAME single tag (vs. the TEMPLATE example, which shows multiple tags distinguishing different sample families). Copy this folder to run_configs/<your_run_name>/, edit paths/sample names, then: python run_barcode_pipeline.py run_configs/<your_run_name>/config.json. See run_configs/TEMPLATE/README.md for full field docs -- only what's different for the single-tag case is called out below.",
+
+  "fastq_dir": "/absolute/path/to/pipeline_work/fastq_gDNA_<run_name>",
+  "sc_in_dir": "/absolute/path/to/pipeline_work/sc_in_<run_name>",
+  "filt_dir": "/absolute/path/to/pipeline_work/filt_<run_name>",
+  "out_dir": "/absolute/path/to/pipeline_output/<run_name>",
+
+  "barcode_read": "R1",
+
+  "stage_fastqs": {
+    "condition1_rep1": "/absolute/path/to/raw_data/condition1_rep1_R1.fastq.gz",
+    "condition1_rep2": "/absolute/path/to/raw_data/condition1_rep2_R1.fastq.gz",
+    "condition2_rep1": "/absolute/path/to/raw_data/condition2_rep1_R1.fastq.gz",
+    "condition2_rep2": "/absolute/path/to/raw_data/condition2_rep2_R1.fastq.gz"
+  },
+
+  "strtseq": "TTTCTAGCTCTAAAAC",
+  "bclen": 20,
+  "startseq_match": 70,
+  "sc_mm": 4,
+
+  "_tag_seqs_comment": "Only one entry -- every read gets checked against this single tag. A read that doesn't fuzzy-match it well enough is still kept and reported with tag \"None\" (e.g. a ladder/spike-in with no tag field at all), it's just never a second, competing tag family the way Tag1 vs Tag2 would be in a multi-tag run.",
+  "tag_seqs": {
+    "Tag1": "GCCGAATC"
+  },
+  "tag_match": 75,
+  "include_tag_in_clustering": false,
+
+  "min_qual": 35,
+
+  "exclude_tag_seqs": {},
+
+  "_groups_comment": "One tag means there's no tag-family split to pool by (unlike the eGRK1059 runs, which pooled per Tag1/Tag2 family). Default here is each sample as its own group -- i.e. no cross-sample pooling for starcode consensus-calling -- which is the safe/conservative choice unless you specifically expect the same physical lineage pool to be shared across some of these samples (e.g. replicates split from one population after barcoding), in which case list those sample names together in one group instead.",
+  "groups": [
+    ["condition1_rep1"],
+    ["condition1_rep2"],
+    ["condition2_rep1"],
+    ["condition2_rep2"]
+  ]
+}

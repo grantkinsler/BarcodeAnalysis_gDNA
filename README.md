@@ -33,6 +33,9 @@ Output: `<out_dir>/starcode_outputs/sc_output_counts_<sample>.txt`, tab-separate
   tables.
 - `run_configs/TEMPLATE/` — a documented config template (`config.json`) and
   field-by-field `README.md`. Copy this per new run/dataset.
+- `run_configs/EXAMPLE_single_tag/` — a worked example for the simpler case
+  where every sample carries the same single tag (vs. TEMPLATE's example,
+  which shows multiple tags distinguishing different sample families).
 - `BarcodeAnalysis_v2_gDNA/` — the vendored, patched extraction pipeline.
   `ExtractBarcodes/Scripts/Functions/gDNA_starcode_prep.py` is the core
   per-read extraction logic `run_barcode_pipeline.py` calls directly;
