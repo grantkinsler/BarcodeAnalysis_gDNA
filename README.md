@@ -36,6 +36,13 @@ Output: `<out_dir>/starcode_outputs/sc_output_counts_<sample>.txt`, tab-separate
 - `run_configs/EXAMPLE_single_tag/` — a worked example for the simpler case
   where every sample carries the same single tag (vs. TEMPLATE's example,
   which shows multiple tags distinguishing different sample families).
+- `analysis/` — post-processing scripts (operate on `sc_output_counts_*.txt`,
+  not raw fastqs): diagnosing whether an inflated barcode count is real
+  cross-contamination from another tagged library vs. sequencing/PCR error,
+  inferring the abundance cutoff below which even a "real"-tagged barcode is
+  statistically indistinguishable from that contamination, and a pairwise
+  frequency scatter for sanity-checking it across samples. See its own
+  `README.md` for the full workflow.
 - `BarcodeAnalysis_v2_gDNA/` — the vendored, patched extraction pipeline.
   `ExtractBarcodes/Scripts/Functions/gDNA_starcode_prep.py` is the core
   per-read extraction logic `run_barcode_pipeline.py` calls directly;
