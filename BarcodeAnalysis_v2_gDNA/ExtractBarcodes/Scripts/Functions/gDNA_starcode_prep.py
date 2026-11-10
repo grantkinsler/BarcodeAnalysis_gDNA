@@ -8,7 +8,7 @@ import statistics
 from rapidfuzz import fuzz
 from time import sleep
 
-def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,strtseq,startseqMatch,sc_mm,tag_seqs=None,tagMatch=75,include_tag_in_clustering=False,minQual=None,exclude_tag_seqs=None,reverse_complement=True):
+def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,strtseq,startseqMatch,sc_mm,tag_seqs=None,tagMatch=75,include_tag_in_clustering=False,minQual=None,exclude_tag_seqs=None,reverse_complement=True,assume_tag_present=False):
     # tag_seqs: dict of {tag_name: forward-orientation tag sequence immediately
     # following the barcode in the construct}. Reads are reverse-complemented
     # before strtseq is located, so in that search orientation the tag actually
@@ -54,6 +54,25 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
     # but which one it physically is doesn't change this default. Set False only if a
     # specific construct/read genuinely reads directly into strtseq -> tag -> barcode
     # without needing a flip.
+    #
+    # assume_tag_present=False (default): bc_offset (whether the barcode slice skips
+    # the tag_len-nt tag window) is only set when a read's tag window fuzzy-matches a
+    # declared tag at >=tagMatch. A read whose tag window has enough sequencing error
+    # to miss that threshold falls back to bc_offset=0 -- correct for a construct where
+    # some reads genuinely have NO tag at that position (e.g. a tag-less ladder/spike-in
+    # mixed in with tagged samples), but WRONG for a single-tag library where the tag is
+    # always physically present: those misses silently shift the reported "barcode" to
+    # [[the noisy tag][first (bclen-tag_len) nt of the real barcode]] instead of the
+    # real barcode, which starcode then can't merge back with the correctly-offset
+    # majority (identical real barcode, totally different noisy prefix each time) --
+    # this fabricates one spurious extra "barcode" per distinct tag-read-error pattern
+    # and can inflate the apparent distinct-barcode count by an order of magnitude.
+    # assume_tag_present=True: skip the tag_len-nt window unconditionally whenever
+    # tag_len>0, regardless of fuzzy-match score -- use this when every read in this
+    # sample is known to carry a tag at that fixed position (e.g. tag_seqs has exactly
+    # one entry and there's no genuinely tag-less read population). The fuzzy-match
+    # result still determines the reported per-read tag LABEL (for QC visibility into
+    # how often the tag region itself is noisy), it just no longer gates bc_offset.
     if tag_seqs is None:
         tag_seqs = {}
     if exclude_tag_seqs is None:
@@ -181,16 +200,23 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
                         score = fuzz.ratio(exclude_tag_seqs_rc[name], candidate)
                         if score > best_score:
                             best_name, best_score, best_is_excluded = name, score, True
-                    if best_score >= tagMatch and best_is_excluded:
+                    tag_matched = best_score >= tagMatch
+                    if tag_matched and best_is_excluded:
                         dropped_as_excluded_tag = True
-                    elif best_score >= tagMatch:
-                        # Structurally a tag is present (sequence matched well enough),
-                        # so the barcode window still starts after it regardless of
-                        # quality. Quality only gates whether we trust WHICH tag it is.
-                        bc_offset = tag_len
-                        candidate_q = trim_q[0:tag_len]
-                        if minQual is None or statistics.mean(candidate_q) >= minQual:
-                            called_tag = best_name
+                    else:
+                        # assume_tag_present: skip the tag window unconditionally (the
+                        # tag is known to always be physically present at this fixed
+                        # offset for this sample), independent of fuzzy-match confidence.
+                        # Otherwise (default): only skip when the tag confidently matched
+                        # -- structurally a tag is present (sequence matched well enough),
+                        # so the barcode window starts after it regardless of quality;
+                        # quality only gates whether we trust WHICH tag it is.
+                        if assume_tag_present or tag_matched:
+                            bc_offset = tag_len
+                        if tag_matched:
+                            candidate_q = trim_q[0:tag_len]
+                            if minQual is None or statistics.mean(candidate_q) >= minQual:
+                                called_tag = best_name
 
                 if dropped_as_excluded_tag:
                     readsKeep_gDNA[counter].append(False)

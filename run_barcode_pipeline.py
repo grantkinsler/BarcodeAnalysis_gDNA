@@ -183,6 +183,7 @@ def main(config_path):
         cfg.get("include_tag_in_clustering", False),
         cfg.get("min_qual"), cfg.get("exclude_tag_seqs", {}),
         cfg.get("reverse_complement", True),
+        cfg.get("assume_tag_present", False),
     )
     print("Done extracting.\n")
 

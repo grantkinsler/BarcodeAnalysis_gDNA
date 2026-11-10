@@ -83,6 +83,21 @@ immediately after the barcode (in construct orientation), so
   reverse complement of a `tag_seqs` value) doesn't change with
   `reverse_complement` — confirmed against synthetic R1 and R2 reads built
   that way (see git history for the test).
+- **`assume_tag_present` option** — by default, the tag_len-nt skip (whether
+  the barcode window starts after the tag) only happens when a read's tag
+  window confidently fuzzy-matches a declared tag; a read that fails that
+  match keeps a 0nt offset, correct for a construct where some reads
+  genuinely have no tag there (e.g. a tag-less ladder/spike-in). For a
+  single-tag library where the tag is always truly physically present, that
+  default is actively harmful: a read whose real tag has enough sequencing
+  error to miss the match threshold doesn't just get mislabeled, it silently
+  reports `[the noisy tag][first (bclen-tag_len) nt of the real barcode]` as
+  a fake barcode instead of the true one — a different fabricated barcode per
+  affected read, which inflated an observed distinct-barcode count by ~20x
+  before being diagnosed and fixed. `assume_tag_present=True` skips the tag
+  window unconditionally regardless of match confidence, for exactly this
+  single-tag-library case (the tag LABEL reported is unaffected, still driven
+  by the fuzzy match, just no longer gates the offset).
 
 ## New on top of both
 

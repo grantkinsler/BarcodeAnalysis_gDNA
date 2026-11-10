@@ -26,6 +26,9 @@
   "tag_match": 75,
   "include_tag_in_clustering": false,
 
+  "_assume_tag_present_comment": "false (default): a read whose tag window doesn't confidently fuzzy-match any declared tag gets bc_offset=0 (no skip) -- correct when some reads genuinely have no tag at that position (e.g. a tag-less ladder/spike-in mixed in with tagged samples). true: skip the tag window unconditionally regardless of match confidence -- use this when every real read in this sample is known to carry a tag at that fixed position with no genuinely tag-less population; otherwise a noisy (but present) tag read silently shifts/truncates the reported barcode instead of being correctly offset, which can fabricate many spurious distinct barcodes. See README.md.",
+  "assume_tag_present": false,
+
   "min_qual": 35,
 
   "exclude_tag_seqs": {},

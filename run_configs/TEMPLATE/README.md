@@ -100,6 +100,25 @@ These are per-read settings, applied before any clustering:
   and reported per-read separately). `true` carries the tag window through as
   part of what gets clustered -- only use this if you specifically want
   tag+barcode treated as one unit.
+- `assume_tag_present` (optional, `false` by default): `false` means the
+  tag_len-nt skip (whether the barcode window starts after the tag) only
+  happens when a read's tag window confidently fuzzy-matches a declared tag
+  -- correct when some reads genuinely have no tag at that position (e.g. a
+  tag-less ladder/spike-in mixed in with tagged samples). Set to `true` when
+  every real read in this sample is known to carry a tag at that fixed
+  position, with no genuinely tag-less population to protect (e.g. a
+  single-tag library). **This matters a lot**: with the default `false`, a
+  read whose tag is genuinely present but has enough sequencing error to miss
+  `tag_match` falls back to a 0nt offset instead of the correct tag_len-nt
+  one -- this doesn't drop the read, it silently reports
+  `[the noisy tag][first (bclen-tag_len) nt of the real barcode]` as a fake
+  "barcode" instead of the true one. Because the noise pattern differs read
+  to read, this fabricates a different spurious barcode per affected read
+  rather than merging them, which can inflate the apparent distinct-barcode
+  count by an order of magnitude or more for a construct where the tag is
+  always truly present. A telltale sign you need `true`: a cluster of
+  "barcodes" in your output that are shorter than `bclen` nt of real
+  diversity (i.e. share a long common prefix) at tag `"None"`.
 - `min_qual`: minimum mean Phred quality over the tag window and (separately)
   the barcode window. Low barcode-window quality drops the read entirely; low
   tag-window quality only downgrades the tag call to `"None"`. Set to `null` to
