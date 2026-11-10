@@ -99,6 +99,14 @@ immediately after the barcode (in construct orientation), so
   single-tag-library case (the tag LABEL reported is unaffected, still driven
   by the fuzzy match, just no longer gates the offset).
 
+- **Gzipped fastq input** — upstream only globs for and opens plain
+  `*.fastq`. `gDNA_starcode_prep` now also finds `*.fastq.gz` (R1/R2/I1/I2)
+  and decompresses on the fly for both read passes, so per-sample fastqs can
+  be symlinks to the original compressed files instead of ~20 GB of
+  decompressed copies. Verified byte-identical `sc_input_*`/`tag_calls_*`
+  output for the same reads given as `.fastq` vs `.fastq.gz`. `filt_dir`
+  outputs are always written as plain text (`.gz` stripped from the name).
+
 ## New on top of both
 
 `run_barcode_pipeline.py` is a new, generalized driver (not part of upstream

@@ -11,8 +11,9 @@ load_corrected_clustering.py and the eGRK1059_lod_and_hamming_clustering memory)
 
   1. (optional) stage raw per-sample fastq.gz files into the uniform layout
      gDNA_starcode_prep expects: <fastq_dir>/<sample>/<sample>_L001_R<N>_001.fastq
-     (decompressed -- gDNA_starcode_prep globs for *_R1*.fastq / *_R2*.fastq, not
-     .fastq.gz). <N> is set for the whole run by the config's "barcode_read"
+     (staging decompresses; gDNA_starcode_prep itself reads either *_R1*/*_R2*.fastq
+     or .fastq.gz, so already-gzipped files -- or symlinks to them -- can be used
+     directly without staging). <N> is set for the whole run by the config's "barcode_read"
      ("R1" by default, or "R2" for a run where read orientation was swapped --
      a run is always uniformly one or the other, never mixed). Skip staging
      (omit "stage_fastqs" from the config) if you've already staged fastqs

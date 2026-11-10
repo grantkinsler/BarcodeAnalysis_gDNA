@@ -10,9 +10,11 @@ python run_barcode_pipeline.py run_configs/<your_run_name>/config.json
 
 ## Paths
 
-- `fastq_dir`: where per-sample, decompressed barcode-read fastq files live (or
-  will be staged to). Layout the pipeline expects:
-  `<fastq_dir>/<sample>/<sample>_L001_R<N>_001.fastq`, `<N>` set for the whole
+- `fastq_dir`: where per-sample barcode-read fastq files live (or will be
+  staged to). Plain `.fastq` or gzipped `.fastq.gz` both work (gzipped files
+  are decompressed on the fly, so symlinks to the original `.fastq.gz` files
+  are enough -- no need to decompress to disk). Layout the pipeline expects:
+  `<fastq_dir>/<sample>/<sample>_L001_R<N>_001.fastq[.gz]`, `<N>` set for the whole
   run by `barcode_read` below -- the `_L001_R<N>_001` Illumina-style suffix
   matters, the extraction code parses the sample name by splitting on `_L0`.
   Each sample folder should contain exactly one such file.

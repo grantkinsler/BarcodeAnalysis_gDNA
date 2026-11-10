@@ -7,6 +7,24 @@ from Bio.Seq import Seq
 import statistics
 from rapidfuzz import fuzz
 from time import sleep
+import gzip
+
+
+def _open_fastq(path):
+    """Open a fastq for text reading, transparently decompressing if it ends in .gz."""
+    return gzip.open(path, "rt") if path.endswith(".gz") else open(path)
+
+
+def _glob_fastqs(folder, read):
+    """All *_<read>*.fastq and *_<read>*.fastq.gz files under folder (recursive)."""
+    return (glob(folder + "/**/*_" + read + "*.fastq", recursive=True)
+            + glob(folder + "/**/*_" + read + "*.fastq.gz", recursive=True))
+
+
+def _filt_name(path):
+    """Output filename in filt_dir: source basename, minus .gz (output is always plain text)."""
+    name = path.split('/')[-1]
+    return name[:-3] if name.endswith(".gz") else name
 
 def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,strtseq,startseqMatch,sc_mm,tag_seqs=None,tagMatch=75,include_tag_in_clustering=False,minQual=None,exclude_tag_seqs=None,reverse_complement=True,assume_tag_present=False):
     # tag_seqs: dict of {tag_name: forward-orientation tag sequence immediately
@@ -88,8 +106,8 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
    #for a sample whose read orientation was swapped (see reverse_complement above).
    #Each sample is expected to have exactly one such file in its own folder; the
    #variable names below still say "R1" for historical reasons but cover both.
-    all_R1_gDNA_unfilt = glob(FastqfoldergDNA + "/**/*_R1*.fastq", recursive = True)
-    all_R1_gDNA_unfilt += glob(FastqfoldergDNA + "/**/*_R2*.fastq", recursive = True)
+    all_R1_gDNA_unfilt = _glob_fastqs(FastqfoldergDNA, "R1")
+    all_R1_gDNA_unfilt += _glob_fastqs(FastqfoldergDNA, "R2")
     all_R1_gDNA_unfilt.sort()
     
     # Remove any Read1 fastq files that you dont care about
@@ -134,7 +152,8 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         seqs = []
         quals = []  # per-base Phred quality, same reversal as seqs (no complementing -- quality has no complement)
         for fsmp in s_fastq:
-            for record in SeqIO.parse(fsmp, "fastq"):
+          with _open_fastq(fsmp) as fh:
+            for record in SeqIO.parse(fh, "fastq"):
                 if sample_rc:
                     seqs.append(str(record.seq.reverse_complement()))
                     quals.append(record.letter_annotations["phred_quality"][::-1])
@@ -274,7 +293,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         # get all of the fastq lines from the fastqs
         lines = []
         for fsmp in s_fastq:
-            with open(fsmp) as f:
+            with _open_fastq(fsmp) as f:
                 for line in f:
                     lines.append(line)
                 
@@ -283,7 +302,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         for fsamp in s_fastq:
 
             #write files with these edited barcodes ( these are used as the input into starcode)
-            with open(filt_haveStart_gDNA + "/" + fsamp.split('/')[-1],"w") as f:
+            with open(filt_haveStart_gDNA + "/" + _filt_name(fsamp),"w") as f:
                 # print('Beginning count: ' + str(file_endpoints_gDNA[counter][lane_counter]))
                 # print('End count: '+ str(file_endpoints_gDNA[counter][lane_counter+1]))
                 for j in range(file_endpoints_gDNA[counter][lane_counter],file_endpoints_gDNA[counter][lane_counter+1]):
@@ -316,7 +335,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
     
     
     #get all gDNA Index1 fastq file paths
-    all_I1_gDNA_unfilt = glob(FastqfoldergDNA + "/**/*_I1*.fastq", recursive = True)
+    all_I1_gDNA_unfilt = _glob_fastqs(FastqfoldergDNA, "I1")
     all_I1_gDNA_unfilt.sort()
 
     # Remove any Read1 fastq files that you dont care about
@@ -347,7 +366,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         # get all of the fastq lines from the fastqs
         lines = []
         for fsmp in s_fastq:
-            with open(fsmp) as f:
+            with _open_fastq(fsmp) as f:
                 for line in f:
                     lines.append(line)
                 
@@ -356,7 +375,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         for fsamp in s_fastq:
 
             #write files with these edited barcodes ( these are used as the input into starcode)
-            with open(filt_haveStart_gDNA + "/" + fsamp.split('/')[-1],"w") as f:
+            with open(filt_haveStart_gDNA + "/" + _filt_name(fsamp),"w") as f:
                 # print('Beginning count: ' + str(file_endpoints_gDNA[counter][lane_counter]))
                 # print('End count: '+ str(file_endpoints_gDNA[counter][lane_counter+1]))
                 for j in range(file_endpoints_gDNA[counter][lane_counter],file_endpoints_gDNA[counter][lane_counter+1]):
@@ -372,7 +391,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         counter = counter+1
         
     #get all gDNA Index2 fastq file paths
-    all_I2_gDNA_unfilt = glob(FastqfoldergDNA + "/**/*_I2*.fastq", recursive = True)
+    all_I2_gDNA_unfilt = _glob_fastqs(FastqfoldergDNA, "I2")
     all_I2_gDNA_unfilt.sort()
 
     # Remove any Read1 fastq files that you dont care about
@@ -403,7 +422,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         # get all of the fastq lines from the fastqs
         lines = []
         for fsmp in s_fastq:
-            with open(fsmp) as f:
+            with _open_fastq(fsmp) as f:
                 for line in f:
                     lines.append(line)
                 
@@ -412,7 +431,7 @@ def gDNA_starcode_prep(FastqfoldergDNA,sc_in,GSAMP,bclen,filt_haveStart_gDNA,str
         for fsamp in s_fastq:
 
             #write files with these edited barcodes ( these are used as the input into starcode)
-            with open(filt_haveStart_gDNA + "/" + fsamp.split('/')[-1],"w") as f:
+            with open(filt_haveStart_gDNA + "/" + _filt_name(fsamp),"w") as f:
                 # print('Beginning count: ' + str(file_endpoints_gDNA[counter][lane_counter]))
                 # print('End count: '+ str(file_endpoints_gDNA[counter][lane_counter+1]))
                 for j in range(file_endpoints_gDNA[counter][lane_counter],file_endpoints_gDNA[counter][lane_counter+1]):
