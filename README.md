@@ -65,3 +65,10 @@ Output: `<out_dir>/starcode_outputs/sc_output_counts_<sample>.txt`, tab-separate
 
 - `CHANGES.md` — detailed diff against upstream: bugs fixed and tag/quality
   features added.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE). This covers everything in the repository except
+`BarcodeAnalysis_v2_gDNA/starcode/`, which is vendored from
+[gui11aume/starcode](https://github.com/gui11aume/starcode) and remains under its own GPL-3.0
+license (`BarcodeAnalysis_v2_gDNA/starcode/LICENSE`).
